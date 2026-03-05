@@ -1,8 +1,10 @@
 import * as fs from "fs";
 import * as path from "path";
 import { execSync } from "child_process";
+import * as https from "https";
 import { loadConfig, getConfig, ensureConfigDir, globalConfigDir, pidFilePath, logFilePath, sessionsFilePath } from "./config";
 import { printBanner, stopBannerResize } from "./banner";
+import { errorMessage } from "./logger";
 import { formatTimeAgo } from "./session-ui";
 import { loadActiveSessionId, loadSessionCwd, findSession } from "./sessions";
 import { runSetupIfNeeded, runConfigEditor } from "./setup";
@@ -139,6 +141,7 @@ export function cmdStatus(): void {
       "  --level LEVEL    Filter by DEBUG|INFO|WARN|ERROR",
       "  --tag TAG        Filter by component tag",
       "config             Edit configuration",
+    "update             Update to latest version",
       ...(isMacOS() ? ["setup-stt          Setup STT (speech-to-text)"] : []),
     ]);
     return;
@@ -190,6 +193,7 @@ export function cmdStatus(): void {
     "  --level LEVEL    Filter by DEBUG|INFO|WARN|ERROR",
     "  --tag TAG        Filter by component tag",
     "config             Edit configuration",
+    "update             Update to latest version",
     ...(isMacOS() ? ["setup-stt          Setup STT (speech-to-text)"] : []),
   ]);
 }
@@ -287,4 +291,81 @@ export async function cmdConfig(): Promise<void> {
   await spawnDaemon();
   cmdStatus();
   cmdLogs({ follow: true, lines: 10, level: null, tag: null });
+}
+
+// ---------- Update ----------
+function fetchLatestVersion(packageName: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    https.get(`https://registry.npmjs.org/${packageName}/latest`, (res) => {
+      if (res.statusCode !== 200) {
+        reject(new Error(`npm registry returned ${res.statusCode}`));
+        res.resume();
+        return;
+      }
+      let data = "";
+      res.on("data", (chunk) => { data += chunk; });
+      res.on("end", () => {
+        try {
+          const json = JSON.parse(data);
+          resolve(json.version);
+        } catch (e) {
+          reject(e);
+        }
+      });
+    }).on("error", reject);
+  });
+}
+
+function compareVersions(a: string, b: string): number {
+  const pa = a.split(".").map(Number);
+  const pb = b.split(".").map(Number);
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const na = pa[i] || 0;
+    const nb = pb[i] || 0;
+    if (na !== nb) return na - nb;
+  }
+  return 0;
+}
+
+export async function cmdUpdate(): Promise<void> {
+  const pkgPath = path.join(__dirname, "..", "package.json");
+  const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
+  const currentVersion: string = pkg.version;
+  const packageName: string = pkg.name;
+
+  console.log(`Current version: ${currentVersion}`);
+  console.log("Checking for updates...");
+
+  let latestVersion: string;
+  try {
+    latestVersion = await fetchLatestVersion(packageName);
+  } catch (err) {
+    console.error(`Failed to check npm registry: ${errorMessage(err)}`);
+    process.exit(1);
+  }
+
+  if (compareVersions(latestVersion, currentVersion) <= 0) {
+    console.log(`Already up to date (${currentVersion}).`);
+    return;
+  }
+
+  console.log(`New version available: ${currentVersion} → ${latestVersion}`);
+  console.log("Updating...");
+
+  try {
+    execSync(`npm install -g ${packageName}@${latestVersion}`, { stdio: "inherit" });
+  } catch {
+    console.error("Failed to install update. You may need to run with sudo:");
+    console.error(`  sudo npm install -g ${packageName}@${latestVersion}`);
+    process.exit(1);
+  }
+
+  console.log(`Updated to ${latestVersion}.`);
+
+  // Restart if daemon is running
+  const { running } = isDaemonRunning();
+  if (running) {
+    console.log("Restarting daemon...");
+    await cmdRestart();
+  }
 }
