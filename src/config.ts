@@ -10,6 +10,14 @@ export interface Config {
   verbose: boolean;
 }
 
+export const EFFORT_CHOICES = ["low", "medium", "high", "xhigh", "max"] as const;
+export type EffortChoice = typeof EFFORT_CHOICES[number];
+
+export function parseEffortChoice(value: string): EffortChoice | null {
+  const normalized = value.trim().toLowerCase();
+  return EFFORT_CHOICES.find((choice) => choice === normalized) || null;
+}
+
 export function globalConfigDir(): string {
   return path.join(os.homedir(), ".remotecode");
 }
@@ -207,4 +215,5 @@ export const MODEL_CHOICES: Array<{ label: string; modelId: string }> = [
   { label: "Sonnet 4.5", modelId: "claude-sonnet-4-5-20250929" },
   { label: "Opus 4.6", modelId: "claude-opus-4-6" },
   { label: "Haiku 4.5", modelId: "claude-haiku-4-5-20251001" },
+  { label: "Opus 4.7", modelId: "claude-opus-4-7" },
 ];

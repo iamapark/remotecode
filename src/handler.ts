@@ -21,6 +21,7 @@ import {
   getOrCreateSessionId,
   loadSessionCwd,
   loadModel,
+  loadEffort,
   createNewSession,
   findSession,
   findSessionFilePath,
@@ -845,6 +846,7 @@ async function streamResponse(
     cwd: options.cwd,
     yolo: isYolo,
     model: options.model,
+    effort: loadEffort(ctx.sessionsFile),
     canUseTool: buildCanUseTool(ctx, chatId, messageId, sessionId, options.cwd, flushRef, toolCtrl.toRef()),
   })) {
     const suppressed = isSessionSuppressed(sessionId) || quiet;

@@ -132,6 +132,7 @@ async function registerCommands(config: TelegramConfig): Promise<void> {
     { command: "history", description: "Show last 10 turns of current session" },
     { command: "cancel", description: "Cancel the current task" },
     { command: "model", description: "Switch Claude model" },
+    { command: "effort", description: "Set Claude effort level" },
     { command: "sync", description: "Toggle auto-sync notifications" },
   ];
   const builtInNames = new Set(builtIn.map(c => c.command));

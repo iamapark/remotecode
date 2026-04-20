@@ -1,6 +1,6 @@
 import { sendMessage } from "./telegram";
 import { logger } from "./logger";
-import { MODEL_CHOICES } from "./config";
+import { EFFORT_CHOICES, MODEL_CHOICES, parseEffortChoice } from "./config";
 import { isAutoSyncEnabled, setAutoSync } from "./watcher";
 import {
   loadActiveSessionId,
@@ -15,6 +15,8 @@ import {
   createNewSession,
   saveModel,
   loadModel,
+  saveEffort,
+  loadEffort,
 } from "./sessions";
 import {
   formatSessionLabel,
@@ -53,6 +55,7 @@ export async function handleCommand(
       "/new - Start a new session",
       "/history - Show conversation history",
       "/model - Switch Claude model",
+      "/effort - Set Claude effort level",
       "/resume - Resume a session in the current project",
       "/cancel - Cancel the current task",
       "/sync - Toggle auto-sync notifications",
@@ -167,6 +170,33 @@ export async function handleCommand(
         { text: label, callback_data: `model:${modelId}` },
       ]);
       const label = current ? `Current model: ${current}` : "Select model:";
+      await sendMessage(ctx.telegram, chatId, label, {
+        replyToMessageId: messageId,
+        replyMarkup: { inline_keyboard: buttons },
+      });
+    }
+    return true;
+  }
+
+  if (command === "/effort") {
+    logger.debug("command", `chat_id=${chatId} command=/effort`);
+    const arg = text.split(/\s+/).slice(1).join(" ").trim();
+    if (arg) {
+      const effort = parseEffortChoice(arg);
+      if (!effort) {
+        await sendMessage(ctx.telegram, chatId, `Invalid effort. Use one of: ${EFFORT_CHOICES.join(", ")}`, {
+          replyToMessageId: messageId,
+        });
+        return true;
+      }
+      saveEffort(ctx.sessionsFile, effort);
+      await sendMessage(ctx.telegram, chatId, `Effort: ${effort}`, { replyToMessageId: messageId });
+    } else {
+      const current = loadEffort(ctx.sessionsFile);
+      const buttons = EFFORT_CHOICES.map((effort) => [
+        { text: effort === current ? `• ${effort}` : effort, callback_data: `effort:${effort}` },
+      ]);
+      const label = current ? `Current effort: ${current}\nSelect effort:` : "Current effort: high (default)\nSelect effort:";
       await sendMessage(ctx.telegram, chatId, label, {
         replyToMessageId: messageId,
         replyMarkup: { inline_keyboard: buttons },

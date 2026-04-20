@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
-import { readKvFile, readEnvLines, writeEnvLines } from "../config";
+import { readKvFile, readEnvLines, writeEnvLines, parseEffortChoice } from "../config";
 
 describe("readKvFile", () => {
   const tmpFile = path.join(os.tmpdir(), `remotecode_test_kv_${Date.now()}.txt`);
@@ -48,5 +48,15 @@ describe("readEnvLines / writeEnvLines", () => {
     const read = readEnvLines(tmpFile);
     expect(read).toContain("FOO=bar");
     expect(read).toContain("BAZ=qux");
+  });
+});
+
+describe("parseEffortChoice", () => {
+  it("parses a valid effort choice case-insensitively", () => {
+    expect(parseEffortChoice("XHIGH")).toBe("xhigh");
+  });
+
+  it("returns null for an invalid effort choice", () => {
+    expect(parseEffortChoice("turbo")).toBeNull();
   });
 });

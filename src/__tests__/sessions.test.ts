@@ -1,5 +1,8 @@
-import { describe, it, expect } from "vitest";
-import { formatTimeAgo, formatSessionLabel, SessionInfo } from "../sessions";
+import { describe, it, expect, afterEach } from "vitest";
+import * as fs from "fs";
+import * as path from "path";
+import * as os from "os";
+import { formatTimeAgo, formatSessionLabel, SessionInfo, loadEffort, saveEffort } from "../sessions";
 
 function makeSession(overrides: Partial<SessionInfo> = {}): SessionInfo {
   return {
@@ -53,5 +56,18 @@ describe("formatSessionLabel", () => {
   it("falls back to project name only", () => {
     const s = makeSession();
     expect(formatSessionLabel(s)).toBe("project");
+  });
+});
+
+describe("effort session preference", () => {
+  const tmpFile = path.join(os.tmpdir(), `remotecode_test_effort_${Date.now()}.txt`);
+
+  afterEach(() => {
+    try { fs.unlinkSync(tmpFile); } catch { /* ignore */ }
+  });
+
+  it("saves and loads effort", () => {
+    saveEffort(tmpFile, "xhigh");
+    expect(loadEffort(tmpFile)).toBe("xhigh");
   });
 });

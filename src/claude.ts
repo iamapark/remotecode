@@ -1,6 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import { query, type SDKMessage, type SDKUserMessage, type PermissionResult, type Query } from "@anthropic-ai/claude-agent-sdk";
+import type { EffortChoice } from "./config";
 import { findSessionFilePath } from "./sessions";
 import { logger, errorMessage } from "./logger";
 
@@ -36,6 +37,7 @@ export interface QueryOptions {
   cwd: string;
   yolo: boolean;
   model?: string;
+  effort?: EffortChoice;
   canUseTool?: CanUseToolFn;
 }
 
@@ -103,6 +105,7 @@ interface SessionState {
   channel: MessageChannel;
   sessionId: string;
   canUseToolRef: { current: CanUseToolFn | undefined };
+  effort?: EffortChoice;
   turnLock: Promise<void>;
   releaseTurn: (() => void) | null;
   interrupted: boolean;
@@ -171,7 +174,7 @@ function initNewSession(
 ): SessionState {
   logger.debug(
     "claude",
-    `new session: ${sessionId.slice(0, 8)} resume=${resume} model=${options.model || "default"}`,
+    `new session: ${sessionId.slice(0, 8)} resume=${resume} model=${options.model || "default"} effort=${options.effort || "high"}`,
   );
 
   const canUseToolRef: { current: CanUseToolFn | undefined } = {
@@ -193,6 +196,7 @@ function initNewSession(
       ...(resume ? { resume: sessionId } : { sessionId }),
       cwd: options.cwd,
       model: options.model,
+      effort: options.effort,
       permissionMode: options.yolo ? "bypassPermissions" : undefined,
       allowDangerouslySkipPermissions: options.yolo || undefined,
       canUseTool: wrappedCanUseTool,
@@ -207,6 +211,7 @@ function initNewSession(
     channel,
     sessionId,
     canUseToolRef,
+    effort: options.effort,
     turnLock: Promise.resolve(),
     releaseTurn: null,
     interrupted: false,
@@ -229,6 +234,10 @@ export async function* querySession(
   let session = sessions.get(sessionId);
 
   // Stale session: external changes detected, recreate to pick up new JSONL context
+  if (session && session.effort !== options.effort) {
+    logger.debug("claude", `effort changed for ${sessionId.slice(0, 8)} (${session.effort || "high"} → ${options.effort || "high"}), marking stale`);
+    session.stale = true;
+  }
   if (session && !session.stale) {
     // Check if JSONL file grew since last turn (host CLI wrote new messages)
     const currentSize = getJsonlFileSize(sessionId);

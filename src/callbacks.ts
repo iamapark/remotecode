@@ -8,7 +8,7 @@ import {
 } from "./telegram";
 import { logger, errorMessage, silentCatch } from "./logger";
 import { escapeHtml } from "./format";
-import { defaultCwd } from "./config";
+import { defaultCwd, parseEffortChoice } from "./config";
 import { HandlerContext, isUserAllowed } from "./context";
 import { setSessionAutoAllow, setSessionToolAllow, resetSessionAutoAllow, isSessionBusy, suppressSessionMessages, unsuppressSessionMessages } from "./session-state";
 import {
@@ -17,6 +17,7 @@ import {
   saveActiveSessionId,
   saveSessionCwd,
   saveModel,
+  saveEffort,
   discoverSessions,
   discoverProjects,
   discoverProjectSessions,
@@ -288,6 +289,7 @@ const callbackRoutes: Array<[string, CallbackHandler]> = [
   ["ask:", handleAskCallback],
   ["perm:", handlePermCallback],
   ["model:", handleModelCallback],
+  ["effort:", handleEffortCallback],
   ["takeover:", handleTakeoverCallback],
 ];
 
@@ -403,6 +405,21 @@ async function handleModelCallback(
   const model = data.slice("model:".length);
   saveModel(ctx.sessionsFile, model);
   silentCatch("callback", "editModelResponse", editMessageText(ctx.telegram, chatId, messageId, `Model: ${model}`));
+}
+
+async function handleEffortCallback(
+  data: string,
+  chatId: number,
+  messageId: number,
+  ctx: HandlerContext
+): Promise<void> {
+  const effort = parseEffortChoice(data.slice("effort:".length));
+  if (!effort) {
+    silentCatch("callback", "editEffortInvalid", editMessageText(ctx.telegram, chatId, messageId, "Invalid effort selection."));
+    return;
+  }
+  saveEffort(ctx.sessionsFile, effort);
+  silentCatch("callback", "editEffortResponse", editMessageText(ctx.telegram, chatId, messageId, `Effort: ${effort}`));
 }
 
 // ---------- takeover callback ----------

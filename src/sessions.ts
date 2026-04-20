@@ -2,7 +2,8 @@ import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
 import { v4 as uuidv4 } from "uuid";
-import { readKvFile, readEnvLines, writeEnvLines } from "./config";
+import type { EffortChoice } from "./config";
+import { parseEffortChoice, readKvFile, readEnvLines, writeEnvLines } from "./config";
 import { logger, errorMessage } from "./logger";
 import { parseJsonlLines, extractMessageContent, cleanFirstMessage } from "./jsonl";
 
@@ -338,6 +339,19 @@ export function saveModel(sessionsFile: string, model: string): void {
   let lines = readEnvLines(sessionsFile);
   lines = lines.filter((l) => !l.trim().startsWith("REMOTECODE_MODEL="));
   lines.push(`REMOTECODE_MODEL=${model}`);
+  writeEnvLines(sessionsFile, lines);
+}
+
+export function loadEffort(sessionsFile: string): EffortChoice | undefined {
+  const effort = readKvFile(sessionsFile).REMOTECODE_EFFORT;
+  if (!effort) return undefined;
+  return parseEffortChoice(effort) || undefined;
+}
+
+export function saveEffort(sessionsFile: string, effort: EffortChoice): void {
+  let lines = readEnvLines(sessionsFile);
+  lines = lines.filter((l) => !l.trim().startsWith("REMOTECODE_EFFORT="));
+  lines.push(`REMOTECODE_EFFORT=${effort}`);
   writeEnvLines(sessionsFile, lines);
 }
 
